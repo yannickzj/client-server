@@ -19,9 +19,6 @@ int main(int argc, char **argv) {
 	host = argv[1];
 	port = atoi(argv[2]);
 
-	clientfd = open_clientfd(host, port);
-	//printf("clientfd = %d\n", clientfd);
-	//return 0;
 	
 //	while (fgets(buf, MAXLINE, stdin) != NULL) {
 //
@@ -39,28 +36,35 @@ int main(int argc, char **argv) {
 //		fputs(rcvMsg, stdout);
 
 //	}
-	if (send(clientfd, buf, strlen(buf), 0) < 0) {
-		printf("client send() failed!\n");
-	}
 
-	if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
-		printf("client recv() failed!\n");
+	int n = 3;
+
+	for (int i = 0; i < n; i++) {
+
+		clientfd = open_clientfd(host, port);
+
+		if (send(clientfd, buf, strlen(buf), 0) < 0) {
+			printf("client send() failed!\n");
+		}
+	
+		printf("client sent a request: %s\n", buf);
+	
+		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
+			printf("client recv() failed!\n");
+		}
+		printf("received: %s\n", rcvMsg);
+
+		close(clientfd);
+
 	}
-	printf("received: %s\n", rcvMsg);
 
 //	char hostname[20];
 //	gethostname(hostname, sizeof(hostname));
 //	fprintf(stderr, "hostname is %s\n", hostname);
 
-
-	close(clientfd);
-
 	return 0;
 
-
 }
-
-
 
 
 

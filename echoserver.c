@@ -8,7 +8,7 @@ void echo(int connfd) {
 	
 
 	recv(connfd, buf, MAXLINE, 0);
-	sleep(5);
+	sleep(2);
 	send(connfd, msg, MAXLINE, 0);
 
 //	while ((n = recv(connfd, buf, MAXLINE, 0)) != 0) {
@@ -18,41 +18,55 @@ void echo(int connfd) {
 
 }
 
-int main(int argc, char **argv) {
-	int listenfd;
-	int connfd;
-	int port;
-	char *haddrp;
-	socklen_t clientlen;
-	struct sockaddr_in clientaddr;
-	struct hostent *hp;
+void *producer(void *vargp) {
+	int connfd = *((int *)vargp);
+	pthread_t tid = pthread_self();
+	pthread_detach(tid);
+	free(vargp);
+	echo(connfd);
 
+	printf("thread <%ld> is running!\n", tid);
+
+	close(connfd);
+	return NULL;
+}
+
+
+
+
+
+int main(int argc, char **argv) {
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s <port>\n", argv[0]);
 		exit(0);
 	}
 
+	//variable declaration
+	int listenfd;
+	int *connfdp;
+	int port;
+	char *haddrp;
+	socklen_t clientlen;
+	struct sockaddr_in clientaddr;
+	struct hostent *hp;
+	pthread_t tid;
+
 	port = atoi(argv[1]);
-	//printf("port: %d\n", port);
+	clientlen = sizeof(clientaddr);
 
 	listenfd = open_listenfd(port);
 
 	while (1) {
-		clientlen = sizeof(clientaddr);
-		connfd = accept(listenfd, (SA *) &clientaddr, &clientlen);
-		if (connfd < 0) {
-			printf("server failed to accept!\n");
-			return -1;
-		}
-		//printf("hello!\n");
+		connfdp = (int *)malloc(sizeof(int));
+		*connfdp = accept(listenfd, (SA *) &clientaddr, &clientlen);
 
 		//determine the domainname and IP address of the client
 		hp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
 		haddrp = inet_ntoa(clientaddr.sin_addr);
 		printf("server connected to %s (%s)\n", hp->h_name, haddrp);
 
-		echo(connfd);
-		close(connfd);
+		pthread_create(&tid, NULL, producer, connfdp);
+		printf("main created thread <%ld>\n", tid);
 
 	}
 

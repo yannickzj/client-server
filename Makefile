@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = 
+CFLAGS = -lpthread
 
 DIR_SRC = .
 DIR_BUILD = ./bin
