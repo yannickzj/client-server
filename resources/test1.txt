@@ -1,0 +1,53 @@
+#vertex: name; vertex_type; x; y
+275 1 10 4
+300 1 15 3
+340 1 15 5
+375 1 13 6
+445 1 10 6
+ACW 0 13 3
+BRH 0 9 3
+CIF 0 11 1
+CL 0 3 2
+CLN 0 4 3
+CLV 0 4 1
+COG 0 7 3
+OPT 0 15 1
+RAC 0 7 6
+RAZ 0 6 5
+W 0 12 2
+X 0 15 2
+
+#edge: name; v1_name; v2_name; directional; speed; length; eventType
+E1 CLV CLN 0 50 1 0
+E10 BRH 275 0 50 2 0
+E11 275 ACW 0 50 2 0
+E12 ACW 300 0 10 1 0
+E13 CIF W 0 50 1 0
+E14 W OPT 0 50 2 0
+E15 W ACW 0 50 2 0
+E16 ACW 375 0 50 2 0
+E17 375 445 1 50 3 0
+E18 445 275 1 50 4 0
+E19 RAZ RAC 0 50 1 0
+E2 CLV CL 0 60 1 0
+E20 RAC 445 0 50 4 0
+E21 OPT X 0 50 2 0
+E22 X ACW 0 50 2 0
+E23 340 300 0 10 2 0
+E24 340 375 0 20 1 0
+E25 CL CLN 0 50 3 0
+E26 275 375 0 10 1 0
+E27 CLN RAZ 0 50 7 0
+E28 COG RAZ 0 50 9 0
+E3 CLV COG 0 50 4 0
+E4 CLN COG 0 30 3 0
+E5 CLV BRH 0 50 10 0
+E6 CLV W 0 50 11 0
+E7 CL CLN 0 50 3 0
+E8 CLV OPT 0 50 13 0
+E9 BRH W 0 50 4 0
+
+#path: name; edge1_name; edge2_name; ...; edgeN_name
+
+
+#end

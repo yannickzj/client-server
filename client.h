@@ -6,8 +6,25 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <iostream>
+#include <cstdio>
+#include <string>
+
+#define MAXLINE 8192
+#define NUM_REQUEST 1
+
+using namespace std;
 
 typedef struct sockaddr SA;
+
+//consumer parameter structure
+struct client_parms {
+	char* host;
+	int port;
+};
+
 
 int open_clientfd(char *hostname, int port) {
 	int clientfd;
@@ -32,7 +49,7 @@ int open_clientfd(char *hostname, int port) {
 	bcopy((char *)hp->h_addr_list[0], (char *) &serveraddr.sin_addr.s_addr, hp->h_length);
 	serveraddr.sin_port = htons(port);
 
-	printf("serveraddr = %s, port = %d\n", inet_ntoa(serveraddr.sin_addr), serveraddr.sin_port);
+	//printf("serveraddr = %s, port = %d\n", inet_ntoa(serveraddr.sin_addr), serveraddr.sin_port);
 	
 	//establish a connection with the server
 	if (connect(clientfd, (SA *) &serveraddr, sizeof(serveraddr)) < 0) {
@@ -43,5 +60,46 @@ int open_clientfd(char *hostname, int port) {
 	return clientfd;
 
 }
+
+
+void* client(void* parameters) {
+
+	//get input parameters
+	struct client_parms* args = (struct client_parms*) parameters;
+	char *host = args->host;
+	int port = args->port;
+	
+
+	int clientfd;
+	char buf[MAXLINE] = "hello";
+    char rcvMsg[MAXLINE];
+
+	for (int i = 0; i < NUM_REQUEST; i++) {
+
+
+		clientfd = open_clientfd(host, port);
+
+		if (send(clientfd, buf, strlen(buf), 0) < 0) {
+			printf("client send() failed!\n");
+		}
+	
+		printf("client sent a request: %s\n", buf);
+	
+		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
+			printf("client recv() failed!\n");
+		}
+		printf("received: %s\n", rcvMsg);
+
+		close(clientfd);
+
+	}
+
+	return NULL;
+
+}
+
+
+
+
 
 
