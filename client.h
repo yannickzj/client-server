@@ -25,6 +25,7 @@ struct client_parms {
 };
 
 
+//function to connect server
 int open_clientfd(char *hostname, int port) {
 	int clientfd;
 	struct hostent *hp;
@@ -47,8 +48,6 @@ int open_clientfd(char *hostname, int port) {
 	serveraddr.sin_family = AF_INET;
 	bcopy((char *)hp->h_addr_list[0], (char *) &serveraddr.sin_addr.s_addr, hp->h_length);
 	serveraddr.sin_port = htons(port);
-
-	//printf("serveraddr = %s, port = %d\n", inet_ntoa(serveraddr.sin_addr), serveraddr.sin_port);
 	
 	//establish a connection with the server
 	if (connect(clientfd, (SA *) &serveraddr, sizeof(serveraddr)) < 0) {
@@ -61,16 +60,17 @@ int open_clientfd(char *hostname, int port) {
 }
 
 
+//client function
 void* client(void* parameters) {
 
 	//get input parameters
 	struct client_parms* args = (struct client_parms*) parameters;
 	char *host = args->host;
 	int port = args->port;
-	
 	pthread_t tid = pthread_self();
-
 	int clientfd;
+
+	//each client sends 3 request
 	int num = 3;
 	char* requests[num];
 	char sndMsg1[MAXLINE] = "trip shortest CLV 340";
@@ -80,21 +80,24 @@ void* client(void* parameters) {
 	requests[1] = sndMsg2;
 	requests[2] = sndMsg3;
 
+
 	for (int i = 0; i < num; i++) {
 
 		char rcvMsg[MAXLINE];
 		clientfd = open_clientfd(host, port);
 
+		//client sends a request to server
 		if (send(clientfd, requests[i], strlen(requests[i])+1, 0) < 0) {
 			printf("client <%ld> send() failed!\n", tid);
 		}
 	
-		//printf("client <%ld> sent a request: %s\n", tid, sndMsg);
+		printf("client <%ld> sent a request: %s\n", tid, requests[i]);
 	
+		//client waits for the reponse of server
 		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
 			printf("client <%ld> recv() failed!\n", tid);
 		}
-		printf("client <%ld> requested \"%s\" and received \"%s\"\n", tid, requests[i], rcvMsg);
+		printf("client <%ld> received \"%s\"\n", tid, rcvMsg);
 
 		close(clientfd);
 

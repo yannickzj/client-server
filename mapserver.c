@@ -1,8 +1,5 @@
 #include "server.h"
 #include "graph.h"
-#include <semaphore.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #define MAXLINE 1024
 #define MSGEND '!'
@@ -15,11 +12,6 @@
 
 using namespace std;
 
-//semaphores to coodinate producers and consumers 
-//sem_t sem_pi;
-//sem_t sem_po;
-//sem_t sem_c;
-
 //'available_raw' and 'available_parsed' semaphore counting the number of available slots in the two buffers 
 //'occupied_raw' and 'occupied_parsed' semaphore counting the number of occupied slots in the two buffers 
 sem_t available_raw;
@@ -30,6 +22,8 @@ sem_t occupied_parsed;
 //mutex to control the access of the two buffers
 pthread_mutex_t lock_raw = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lock_parsed = PTHREAD_MUTEX_INITIALIZER;
+
+//mutex to control the access of the server map
 pthread_mutex_t lock_map = PTHREAD_MUTEX_INITIALIZER;
 
 //request structure
@@ -85,24 +79,24 @@ char** parse(char* message) {
 	vector<string> strSplit = split(str, " ");
 	string key = strSplit[0];
 
+	//to check whether the request message is valid
 	if (key != "trip" && key != "add") {
 		cout << "no key in message!" << endl;
 		return NULL;
 	}
-
 	if (key == "trip") {
 		if (strSplit.size() != 4 || (strSplit[1] != "fastest" && strSplit[1] != "shortest")) {
 			cout << "parameters not valid!" << endl;
 			return NULL;
 		}
 	}
-
 	if (key == "add") {
 		if (strSplit.size() != 8 || (atoi(strSplit[4].c_str()) != 0 && atoi(strSplit[4].c_str()) != 1 && atoi(strSplit[4].c_str()) != 2) || (atoi(strSplit[7].c_str()) != 0 && atoi(strSplit[7].c_str()) != 1 && atoi(strSplit[7].c_str()) != 2) ) {
 			return NULL;
 		}
 	}
 
+	//parse the request to argumet list
 	char **args = new char*[strSplit.size()+1];
 	char *arg0 = new char[INT_STR_LENGTH];
 	snprintf(arg0, INT_STR_LENGTH, "%d", strSplit.size());
@@ -116,18 +110,20 @@ char** parse(char* message) {
 		args[i] = arg;
 	}
 
+	//release raw message memory
 	free(message);
 	return args;
 }
 
+//request process function
 string process(char **args, Graph *map) {
 
 	int argc = atoi(args[0]);
 	string key = args[1];
 	string result = "Unknown request!";
 
+	//process "trip" type request
 	if (key == "trip") {
-
 		string type0 = args[2];
 		tripType type;
 		string fromVertex = args[3];
@@ -147,62 +143,47 @@ string process(char **args, Graph *map) {
 		pthread_mutex_lock(&lock_map);
 	
 		if (map->containsRoad(roadFullLabel)) {
-
 			path = map->getRoad(roadFullLabel);
-			
 			result = fromVertex;
-
 			string v1 = fromVertex;
 			string v2;
 	
 			for (int i = 0; i < path->size(); i++) {
-
 				v2 = map->getV2(v1, (*path)[i]); 
 				result = result + " -> " + v2;
 				v1 = v2;
-
 			}
 
 		} else {
 		
 			if (map->containsVertex(fromVertex) && map->containsVertex(toVertex)) {
-
 				bool findTrip = map->trip(fromVertex, toVertex, roadLabel, type);
-						
 				if (findTrip) {
 					path = map->getRoad(roadFullLabel);
-					
 					result = fromVertex;
 					string v1 = fromVertex;
 					string v2;
 
 					for (int i = 0; i < path->size(); i++) {
-						
 						v2 = map->getV2(v1, (*path)[i]); 
 						result = result + " -> " + v2;
 						v1 = v2;
-	
 					}
 		
 				} else {
 					result = roadFullLabel + "not found!";
 				}
-
-				
 			} else {
-			
 				result = "Unknown start/end vertex!";
-			
 			}
-				
 		}
 	
 		//unlock the mutex on the buffer_map
 		pthread_mutex_unlock(&lock_map);
-	
 	}
 
 
+	//process "add" type requests
 	if (key == "add") {
 	
 		string roadLabel = args[2];
@@ -242,7 +223,6 @@ string process(char **args, Graph *map) {
 			map->addVertex(toVertex, DEFAULT_VERTEXTYPE, DEFAULT_X, DEFAULT_Y);
 			//cout << "add toVertex in the server map!" << endl;
 		}
-
 		if (!map->containsEdge(fromVertex+"_"+toVertex)) {
 			map->addEdge(fromVertex+"_"+toVertex, fromVertex, toVertex, dir, speed, length, type);
 			result = "road " + fromVertex + "_" + toVertex + "(" + args[5] + " " + args[6] + " " + args[7] + " " + args[8] + ") has been added in the server map!";
@@ -255,42 +235,28 @@ string process(char **args, Graph *map) {
 
 	}
 
+	//free argument list memory
 	int num_args = atoi(args[0])+1;
 	for (int i = 0; i < num_args; i++) {
 		free(args[i]);
 	}
-	
 	free(args);
 
 	return result;
 
 }
 
-
+//producer thread
 void *producer(void *parameters) {
 	//get parameters
 	struct producer_parms *args = (struct producer_parms *) parameters;
 	queue<struct request_raw> *bufIn = args->bufIn;
 	queue<struct request_parsed> *bufOut = args->bufOut;
 
-	//pthread_t tid = pthread_self();
-	//pthread_detach(tid);
-	//free(args);
-
-	//char message[MAXLINE];
-	//char msg[MAXLINE] = "world!\n";
-
-	//recv(connfd, message, MAXLINE, 0);
-	//string str = message;
-
-
 	struct request_raw rq_raw;
 	struct request_parsed rq_parsed;
 
 	while(1) {
-		//get request from the buffer_raw
-		//sem_wait(&sem_pi);
-
 		sem_wait(&occupied_raw);
 
 		//lock to access the buffer_raw
@@ -305,16 +271,10 @@ void *producer(void *parameters) {
 
 		sem_post(&available_raw);
 	
-		//sem_post(&sem_pi);
-	
-
-
-
 
 		//parse and valid the raw message
 		int connfd = rq_raw.connfd;
 		char* message = rq_raw.message;
-		//printf("producer<%ld> connfd = %d, message = %s\n",tid,  connfd, message);
 
 		char** args = parse(message);
 		if (args == NULL) {
@@ -327,8 +287,6 @@ void *producer(void *parameters) {
 			rq_parsed.connfd = connfd;
 			rq_parsed.args = args;
 	
-			//sem_wait(&sem_po);
-	
 			sem_wait(&available_parsed);
 	
 			//lock to access the buffer_parsed
@@ -339,7 +297,6 @@ void *producer(void *parameters) {
 			//unlock the mutex on the buffer_parsed
 			pthread_mutex_unlock(&lock_parsed);
 	
-	
 			sem_post(&occupied_parsed);
 		}
 
@@ -348,7 +305,7 @@ void *producer(void *parameters) {
 	return NULL;
 }
 
-
+//consumer thread
 void *consumer(void *parameters) {
 	//get parameters
 	struct consumer_parms *args = (struct consumer_parms *) parameters;
@@ -381,9 +338,7 @@ void *consumer(void *parameters) {
 	
 		send(connfd, result.c_str(), result.size()+1, 0);
 		close(connfd);
-
 		}
-
 
 	return NULL;
 }
@@ -400,19 +355,22 @@ int main(int argc, char **argv) {
 	int listenfd;
 	int connfd;
 	int port;
-	char *haddrp;
+	//char *haddrp;
 	socklen_t clientlen;
 	struct sockaddr_in clientaddr;
-	struct hostent *hp;
-	pthread_t tid;
+	//struct hostent *hp;
+	//pthread_t tid;
+	struct request_raw request_raw;
+	struct request_raw test;
 
 	port = atoi(argv[1]);
 	int P = atoi(argv[2]);
 	int C = atoi(argv[3]);
+	pthread_t list_p[P];
+	pthread_t list_c[C];
 	clientlen = sizeof(clientaddr);
 
 	listenfd = open_listenfd(port);
-
 
 	//create two buffers
 	queue<struct request_raw> buf_raw;	
@@ -420,16 +378,7 @@ int main(int argc, char **argv) {
 
 	Graph m1;
 	m1.retrieve("./resources/test1.txt");
-//	m1.vertex("ccjil");
-//	m1.edgeEvent("E26",CLOSE);
-//	m1.trip("CLV", "340", "path1", SHORTEST);
-//	m1.edgeEvent("E26",OPEN);
-//	m1.trip("CLV", "340", "CLV_340", FASTEST);
-//	m1.addVertex("RCH",POINT_OF_INTEREST,4,5);
-//	m1.addEdge("additional","RCH","CLV",V1_TO_V2,50,2,OPEN);
-//	m1.vertex("CLN");
-//	m1.store("output1.txt");
-
+	
 	//semaphore initialization
 	sem_init (&available_raw, 0, BUFFER_SIZE_RAW);
 	sem_init (&occupied_raw, 0, 0);
@@ -437,9 +386,6 @@ int main(int argc, char **argv) {
 	sem_init (&occupied_parsed, 0, 0);
 
 	//thread parameter initialization
-	pthread_t list_p[P];
-	pthread_t list_c[C];
-
 	struct producer_parms producer_args;
 	producer_args.bufIn = &buf_raw;
 	producer_args.bufOut = &buf_parsed;
@@ -447,7 +393,6 @@ int main(int argc, char **argv) {
 	struct consumer_parms consumer_args;
 	consumer_args.map = &m1;
 	consumer_args.bufIn = &buf_parsed;
-
 
 	//begin the producer and consumer threads in parallel 
 	int i;
@@ -462,51 +407,32 @@ int main(int argc, char **argv) {
 		}
 	}
 
-
-
-	struct request_raw request_raw;
-	struct request_raw test;
 	while (1) {
-		//producer_argsp = (struct producer_parms *)malloc(sizeof(struct producer_parms));
 
+		//waiting for requests
 		connfd = accept(listenfd, (SA *) &clientaddr, &clientlen);
 
-//		//determine the domainname and IP address of the client
-//		hp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-//		haddrp = inet_ntoa(clientaddr.sin_addr);
-//		printf("server connected to %s (%s)\n", hp->h_name, haddrp);
-
-
+		//receive client requests
 		char *message = new char[MAXLINE];
-		
 		recv(connfd, message, MAXLINE, 0);
 
 		request_raw.connfd = connfd;
 		request_raw.message = message;
 
+		//push raw requests in the buf_raw 
 		sem_wait(&available_raw);
 
 		//lock
 		pthread_mutex_lock(&lock_raw);
-		
 
 		buf_raw.push(request_raw);
-		test = buf_raw.front();
 		
 		//unlock
 		pthread_mutex_unlock(&lock_raw);
 
 		sem_post(&occupied_raw);
-		string str = test.message;
-		//printf("buf_raw front connfd = %d, message = %s\n", test.connfd, str.c_str());
-
-
-		//pthread_create(&tid, NULL, producer, producer_argsp);
-
 	}
-
 	return 0;
 }
-
 
 

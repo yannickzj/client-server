@@ -9,11 +9,13 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <queue>
+#include <semaphore.h>
 
 #define LISTENQ 1024
 
 typedef struct sockaddr SA;
 
+//server listen function
 int open_listenfd(int port) {
 	int listenfd;
     int	optval = 1;
@@ -34,11 +36,9 @@ int open_listenfd(int port) {
 	//listerfd will be an end point for all requests to port on any IP address for this host
 	bzero((char *) &serveraddr, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
-	//serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	serveraddr.sin_addr.s_addr = INADDR_ANY;
 	serveraddr.sin_port = htons((unsigned short)port);
 	
-	//printf("serveraddr = %s, port = %d\n", inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
 
 	if (bind(listenfd, (SA *) &serveraddr, sizeof(serveraddr)) < 0) {
 		printf("server could not bind socket!\n");
@@ -50,12 +50,7 @@ int open_listenfd(int port) {
 		printf("server could not listen socket!\n");
 		return -1;
 	}
-
-
 	return listenfd;
 
 }
-
-
-
 
