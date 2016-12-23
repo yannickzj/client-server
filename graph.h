@@ -402,11 +402,11 @@ public:
 		if (trace == fromVertex) {
 			string suffix;
 			if (type == SHORTEST) {
-				cout << "shortest trip from " << fromVertex << " to " << toVertex << " is found!" << endl;
+				//cout << "shortest trip from " << fromVertex << " to " << toVertex << " is found!" << endl;
 				suffix = "_shortest";
 			}
 			else if (type == FASTEST) {
-				cout << "fastest trip from " << fromVertex << " to " << toVertex << " is found!" << endl;
+				//cout << "fastest trip from " << fromVertex << " to " << toVertex << " is found!" << endl;
 				suffix = "_fastest";
 			}
 			road(label + suffix, edges);

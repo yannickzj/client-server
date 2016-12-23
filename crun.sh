@@ -1,9 +1,10 @@
 HOST=localhost
 PORT=8888
+NUM_CLIENT=2
 
 make clean
 make
-./bin/request $HOST $PORT
+./bin/request $HOST $PORT $NUM_CLIENT
 #for ((i=0; i<5; i++))
 #do
 #	Pi=$((P+i))

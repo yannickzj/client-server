@@ -1,9 +1,11 @@
 HOST=localhost
 PORT=8888
+P=5
+C=5
 
 make clean
 make
-./bin/mapserver $PORT &
+./bin/mapserver $PORT $P $C &
 #./bin/request $HOST $PORT
 #for ((i=0; i<5; i++))
 #do

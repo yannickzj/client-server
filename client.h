@@ -13,7 +13,6 @@
 #include <string>
 
 #define MAXLINE 1024
-#define NUM_REQUEST 1
 
 using namespace std;
 
@@ -69,31 +68,37 @@ void* client(void* parameters) {
 	char *host = args->host;
 	int port = args->port;
 	
+	pthread_t tid = pthread_self();
 
 	int clientfd;
-	char sndMsg[MAXLINE] = "trip fastest DC SLC";
+	int num = 3;
+	char* requests[num];
+	char sndMsg1[MAXLINE] = "trip shortest CLV 340";
+	char sndMsg2[MAXLINE] = "trip fastest CLV 340";
+	char sndMsg3[MAXLINE] = "add road1 v1 v2 0 30 10 0";
+	requests[0] = sndMsg1;
+	requests[1] = sndMsg2;
+	requests[2] = sndMsg3;
 
-	for (int i = 0; i < NUM_REQUEST; i++) {
-
+	for (int i = 0; i < num; i++) {
 
 		char rcvMsg[MAXLINE];
 		clientfd = open_clientfd(host, port);
 
-		if (send(clientfd, sndMsg, strlen(sndMsg)+1, 0) < 0) {
-			printf("client send() failed!\n");
+		if (send(clientfd, requests[i], strlen(requests[i])+1, 0) < 0) {
+			printf("client <%ld> send() failed!\n", tid);
 		}
 	
-		printf("client sent a request: %s\n", sndMsg);
+		//printf("client <%ld> sent a request: %s\n", tid, sndMsg);
 	
 		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
-			printf("client recv() failed!\n");
+			printf("client <%ld> recv() failed!\n", tid);
 		}
-		printf("received: %s\n", rcvMsg);
+		printf("client <%ld> requested \"%s\" and received \"%s\"\n", tid, requests[i], rcvMsg);
 
 		close(clientfd);
 
 	}
-
 	return NULL;
 
 }

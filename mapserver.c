@@ -5,12 +5,13 @@
 #include <stdio.h>
 
 #define MAXLINE 1024
-#define C 5
-#define P 5
 #define MSGEND '!'
 #define BUFFER_SIZE_RAW 20
 #define BUFFER_SIZE_PARSED 20
 #define INT_STR_LENGTH 8
+#define DEFAULT_VERTEXTYPE POINT_OF_INTEREST
+#define DEFAULT_X 0
+#define DEFAULT_Y 0
 
 using namespace std;
 
@@ -29,6 +30,7 @@ sem_t occupied_parsed;
 //mutex to control the access of the two buffers
 pthread_mutex_t lock_raw = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lock_parsed = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t lock_map = PTHREAD_MUTEX_INITIALIZER;
 
 //request structure
 struct request_raw {
@@ -82,11 +84,23 @@ char** parse(char* message) {
 	string str = message;
 	vector<string> strSplit = split(str, " ");
 	string key = strSplit[0];
-	cout << "key = " << key << endl;
 
 	if (key != "trip" && key != "add") {
 		cout << "no key in message!" << endl;
 		return NULL;
+	}
+
+	if (key == "trip") {
+		if (strSplit.size() != 4 || (strSplit[1] != "fastest" && strSplit[1] != "shortest")) {
+			cout << "parameters not valid!" << endl;
+			return NULL;
+		}
+	}
+
+	if (key == "add") {
+		if (strSplit.size() != 8 || (atoi(strSplit[4].c_str()) != 0 && atoi(strSplit[4].c_str()) != 1 && atoi(strSplit[4].c_str()) != 2) || (atoi(strSplit[7].c_str()) != 0 && atoi(strSplit[7].c_str()) != 1 && atoi(strSplit[7].c_str()) != 2) ) {
+			return NULL;
+		}
 	}
 
 	char **args = new char*[strSplit.size()+1];
@@ -106,18 +120,143 @@ char** parse(char* message) {
 	return args;
 }
 
-char* process(char **args, Graph *map) {
+string process(char **args, Graph *map) {
+
+	int argc = atoi(args[0]);
+	string key = args[1];
+	string result = "Unknown request!";
+
+	if (key == "trip") {
+
+		string type0 = args[2];
+		tripType type;
+		string fromVertex = args[3];
+		string toVertex = args[4];
+		string roadLabel = fromVertex + "_" + toVertex;
+		string suffix = "_" + type0;
+		string roadFullLabel = roadLabel + suffix;
+		vector<string>* path;
+		if (type0 == "fastest") {
+			type = FASTEST;
+		}
+		if (type0 == "shortest") {
+			type = SHORTEST;
+		}
+
+		//lock to access the buffer_map
+		pthread_mutex_lock(&lock_map);
+	
+		if (map->containsRoad(roadFullLabel)) {
+
+			path = map->getRoad(roadFullLabel);
+			
+			result = fromVertex;
+
+			string v1 = fromVertex;
+			string v2;
+	
+			for (int i = 0; i < path->size(); i++) {
+
+				v2 = map->getV2(v1, (*path)[i]); 
+				result = result + " -> " + v2;
+				v1 = v2;
+
+			}
+
+		} else {
+		
+			if (map->containsVertex(fromVertex) && map->containsVertex(toVertex)) {
+
+				bool findTrip = map->trip(fromVertex, toVertex, roadLabel, type);
+						
+				if (findTrip) {
+					path = map->getRoad(roadFullLabel);
+					
+					result = fromVertex;
+					string v1 = fromVertex;
+					string v2;
+
+					for (int i = 0; i < path->size(); i++) {
+						
+						v2 = map->getV2(v1, (*path)[i]); 
+						result = result + " -> " + v2;
+						v1 = v2;
+	
+					}
+		
+				} else {
+					result = roadFullLabel + "not found!";
+				}
+
+				
+			} else {
+			
+				result = "Unknown start/end vertex!";
+			
+			}
+				
+		}
+	
+		//unlock the mutex on the buffer_map
+		pthread_mutex_unlock(&lock_map);
+	
+	}
 
 
+	if (key == "add") {
+	
+		string roadLabel = args[2];
+		string fromVertex = args[3];
+		string toVertex = args[4];
+		int dir0 = atoi(args[5]);
+		dirType dir;
+		if (dir0 == 0) {
+			dir = BI_DIRECTIONAL;	
+		} else if (dir == 1) {
+			dir = V1_TO_V2;	
+		} else {
+			dir = V2_TO_V1;	
+		}
 
+		int speed = atoi(args[6]);
+		int length = atoi(args[7]);
+		int type0 = atoi(args[8]);
+		eventType type;
+		if (type0 == 0) {
+			type = OPEN;	
+		} else if (type == 1) {
+			type = CLOSE;	
+		} else {
+			type = HAZARD;	
+		}
 
+		//lock to access the buffer_raw
+		pthread_mutex_lock(&lock_map);
 
-	char *result = (char *)"message processed!";
+		if (!map->containsVertex(fromVertex)) {
+			map->addVertex(fromVertex, DEFAULT_VERTEXTYPE, DEFAULT_X, DEFAULT_Y);
+			//cout << "add fromVertex in the server map!" << endl;
+		}
 
+		if (!map->containsVertex(toVertex)) {
+			map->addVertex(toVertex, DEFAULT_VERTEXTYPE, DEFAULT_X, DEFAULT_Y);
+			//cout << "add toVertex in the server map!" << endl;
+		}
+
+		if (!map->containsEdge(fromVertex+"_"+toVertex)) {
+			map->addEdge(fromVertex+"_"+toVertex, fromVertex, toVertex, dir, speed, length, type);
+			result = "road " + fromVertex + "_" + toVertex + "(" + args[5] + " " + args[6] + " " + args[7] + " " + args[8] + ") has been added in the server map!";
+		} else {
+			result = "road " + fromVertex + "_" + toVertex + "(" + args[5] + " " + args[6] + " " + args[7] + " " + args[8] + ") already exists in the server map!";
+		}
+	
+		//unlock the mutex on the buffer_map
+		pthread_mutex_unlock(&lock_map);
+
+	}
 
 	int num_args = atoi(args[0])+1;
 	for (int i = 0; i < num_args; i++) {
-		//cout << "free:" << args[i] << ";  ";
 		free(args[i]);
 	}
 	
@@ -134,7 +273,7 @@ void *producer(void *parameters) {
 	queue<struct request_raw> *bufIn = args->bufIn;
 	queue<struct request_parsed> *bufOut = args->bufOut;
 
-	pthread_t tid = pthread_self();
+	//pthread_t tid = pthread_self();
 	//pthread_detach(tid);
 	//free(args);
 
@@ -183,33 +322,27 @@ void *producer(void *parameters) {
 			char msg[] = "It is not a valid request!";
 			send(connfd, msg, sizeof(msg), 0);
 			close(connfd);
+		} else {
+			//send the valid message into the buffer_parsed
+			rq_parsed.connfd = connfd;
+			rq_parsed.args = args;
+	
+			//sem_wait(&sem_po);
+	
+			sem_wait(&available_parsed);
+	
+			//lock to access the buffer_parsed
+			pthread_mutex_lock(&lock_parsed);
+	
+			bufOut->push(rq_parsed);
+	
+			//unlock the mutex on the buffer_parsed
+			pthread_mutex_unlock(&lock_parsed);
+	
+	
+			sem_post(&occupied_parsed);
 		}
-	
 
-
-
-
-		//send the valid message into the buffer_parsed
-		rq_parsed.connfd = connfd;
-		rq_parsed.args = args;
-
-		//sem_wait(&sem_po);
-
-		sem_wait(&available_parsed);
-
-		//lock to access the buffer_parsed
-		pthread_mutex_lock(&lock_parsed);
-
-		bufOut->push(rq_parsed);
-
-		//unlock the mutex on the buffer_parsed
-		pthread_mutex_unlock(&lock_parsed);
-
-
-		sem_post(&occupied_parsed);
-	
-		//sem_post(&sem_po);
-	
 	}
 
 	return NULL;
@@ -244,9 +377,9 @@ void *consumer(void *parameters) {
 		int connfd = rq_parsed.connfd;
 		char** args = rq_parsed.args;
 		
-		char* result = process(args, map);
+		string result = process(args, map);
 	
-		send(connfd, result, strlen(result)+1, 0);
+		send(connfd, result.c_str(), result.size()+1, 0);
 		close(connfd);
 
 		}
@@ -258,7 +391,7 @@ void *consumer(void *parameters) {
 
 
 int main(int argc, char **argv) {
-	if (argc != 2) {
+	if (argc != 4) {
 		fprintf(stderr, "usage: %s <port>\n", argv[0]);
 		exit(0);
 	}
@@ -274,6 +407,8 @@ int main(int argc, char **argv) {
 	pthread_t tid;
 
 	port = atoi(argv[1]);
+	int P = atoi(argv[2]);
+	int C = atoi(argv[3]);
 	clientlen = sizeof(clientaddr);
 
 	listenfd = open_listenfd(port);
@@ -284,12 +419,12 @@ int main(int argc, char **argv) {
 	queue<struct request_parsed> buf_parsed;	
 
 	Graph m1;
-//	m1.retrieve("./resources/test1.txt");
+	m1.retrieve("./resources/test1.txt");
 //	m1.vertex("ccjil");
 //	m1.edgeEvent("E26",CLOSE);
 //	m1.trip("CLV", "340", "path1", SHORTEST);
 //	m1.edgeEvent("E26",OPEN);
-//	m1.trip("CLV", "340", "path1", FASTEST);
+//	m1.trip("CLV", "340", "CLV_340", FASTEST);
 //	m1.addVertex("RCH",POINT_OF_INTEREST,4,5);
 //	m1.addEdge("additional","RCH","CLV",V1_TO_V2,50,2,OPEN);
 //	m1.vertex("CLN");
