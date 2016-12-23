@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <string>
 
-#define MAXLINE 8192
+#define MAXLINE 1024
 #define NUM_REQUEST 1
 
 using namespace std;
@@ -71,19 +71,19 @@ void* client(void* parameters) {
 	
 
 	int clientfd;
-	char buf[MAXLINE] = "hello";
-    char rcvMsg[MAXLINE];
+	char sndMsg[MAXLINE] = "trip fastest DC SLC";
 
 	for (int i = 0; i < NUM_REQUEST; i++) {
 
 
+		char rcvMsg[MAXLINE];
 		clientfd = open_clientfd(host, port);
 
-		if (send(clientfd, buf, strlen(buf), 0) < 0) {
+		if (send(clientfd, sndMsg, strlen(sndMsg)+1, 0) < 0) {
 			printf("client send() failed!\n");
 		}
 	
-		printf("client sent a request: %s\n", buf);
+		printf("client sent a request: %s\n", sndMsg);
 	
 		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
 			printf("client recv() failed!\n");
