@@ -12,18 +12,9 @@
 #include <cstdio>
 #include <string>
 
-#define MAXLINE 1024
-
 using namespace std;
 
 typedef struct sockaddr SA;
-
-//consumer parameter structure
-struct client_parms {
-	char* host;
-	int port;
-};
-
 
 //function to connect server
 int open_clientfd(char *hostname, int port) {
@@ -58,56 +49,3 @@ int open_clientfd(char *hostname, int port) {
 	return clientfd;
 
 }
-
-
-//client function
-void* client(void* parameters) {
-
-	//get input parameters
-	struct client_parms* args = (struct client_parms*) parameters;
-	char *host = args->host;
-	int port = args->port;
-	pthread_t tid = pthread_self();
-	int clientfd;
-
-	//each client sends 3 request
-	int num = 3;
-	char* requests[num];
-	char sndMsg1[MAXLINE] = "trip shortest CLV 340";
-	char sndMsg2[MAXLINE] = "trip fastest CLV 340";
-	char sndMsg3[MAXLINE] = "add road1 v1 v2 0 30 10 0";
-	requests[0] = sndMsg1;
-	requests[1] = sndMsg2;
-	requests[2] = sndMsg3;
-
-
-	for (int i = 0; i < num; i++) {
-
-		char rcvMsg[MAXLINE];
-		clientfd = open_clientfd(host, port);
-
-		//client sends a request to server
-		if (send(clientfd, requests[i], strlen(requests[i])+1, 0) < 0) {
-			printf("client <%ld> send() failed!\n", tid);
-		}
-	
-		printf("client <%ld> sent a request: %s\n", tid, requests[i]);
-	
-		//client waits for the reponse of server
-		if (recv(clientfd, rcvMsg, MAXLINE, 0) < 0) {
-			printf("client <%ld> recv() failed!\n", tid);
-		}
-		printf("client <%ld> received \"%s\"\n", tid, rcvMsg);
-
-		close(clientfd);
-
-	}
-	return NULL;
-
-}
-
-
-
-
-
-

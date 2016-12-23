@@ -13,7 +13,7 @@
 #define VERTEX_STR "#vertex"
 #define EDGE_STR "#edge"
 #define PATH_STR "#path"
-#define END_STR "#path"
+#define END_STR "#end"
 #define PREV_DEFAULT ""
 #define HOUR_TO_SECOND 3600
 

@@ -1,0 +1,8 @@
+trip shortest CLV 340
+trip fastest CLV 340
+trip shortest RAC BRH
+trip fastest RAC BRH
+add road1 BRH RAC 0 50 5 0
+add road2 COG BRH 0 30 3 0
+trip shortest RAC BRH
+trip fastest RAC BRH

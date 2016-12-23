@@ -355,11 +355,8 @@ int main(int argc, char **argv) {
 	int listenfd;
 	int connfd;
 	int port;
-	//char *haddrp;
 	socklen_t clientlen;
 	struct sockaddr_in clientaddr;
-	//struct hostent *hp;
-	//pthread_t tid;
 	struct request_raw request_raw;
 	struct request_raw test;
 
@@ -376,6 +373,7 @@ int main(int argc, char **argv) {
 	queue<struct request_raw> buf_raw;	
 	queue<struct request_parsed> buf_parsed;	
 
+	//load the server map
 	Graph m1;
 	m1.retrieve("./resources/test1.txt");
 	
