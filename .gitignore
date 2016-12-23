@@ -27,3 +27,12 @@
 *.exe
 *.out
 *.app
+
+# User
+*
+!*.c
+!Makefile
+!*.sh
+!*.h
+!.gitignore
+!*.cpp
